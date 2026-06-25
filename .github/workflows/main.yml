@@ -22,15 +22,33 @@ jobs:
         with:
           cache-disabled: true
 
-      - name: Fix Hardcoded Java Home
+      - name: Discover and Fix Project Structure
         run: |
-          if [ -f gradle.properties ]; then
-            sed -i '/org.gradle.java.home/d' gradle.properties
-            echo "Hardcoded java.home removed successfully!"
+          # پیدا کردن خودکار پوشه‌ای که فایل اصلی تنظیمات گریدل در آن قرار دارد
+          SETTINGS_FILE=$(find . -name "settings.gradle" -o -name "settings.gradle.kts" | head -n 1)
+          if [ -z "$SETTINGS_FILE" ]; then
+            echo "ERROR: settings.gradle not found!"
+            exit 1
+          fi
+          
+          PROJ_DIR=$(dirname "$SETTINGS_FILE")
+          echo "Found project in: $PROJ_DIR"
+          echo "PROJ_DIR=$PROJ_DIR" >> $GITHUB_ENV
+          
+          # پاک کردن آدرس جاوای هاردکد شده در پوشه پیدا شده
+          if [ -f "$PROJ_DIR/gradle.properties" ]; then
+            sed -i '/org.gradle.java.home/d' "$PROJ_DIR/gradle.properties"
+            echo "Hardcoded java.home removed from subfolder!"
           fi
 
       - name: Change wrapper permissions
         run: chmod +x gradlew
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug
+        run: ./gradlew -p ${{ env.PROJ_DIR }} assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: App-Debug-APK
+          path: "**/build/outputs/apk/debug/*.apk"
