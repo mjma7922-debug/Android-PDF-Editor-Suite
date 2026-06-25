@@ -22,24 +22,36 @@ jobs:
         with:
           cache-disabled: true
 
-      - name: Discover and Fix Project Structure
+      - name: Diagnose and Fix Project Structure
         run: |
-          # یک دستور ساده‌تر و بدون خطا برای پیدا کردن مسیر پروژه
-          SETTINGS_FILE=$(find . -name "settings.gradle*" | head -n 1)
+          echo "=== لیست تمام فایل‌های پوشه اصلی ==="
+          ls -R
+          echo "==================================="
+          
+          # جستجوی غیرحساس به حروف کوچک و بزرگ برای فایل تنظیمات
+          SETTINGS_FILE=$(find . -iname "settings.gradle*" | head -n 1)
           
           if [ -z "$SETTINGS_FILE" ]; then
-            echo "ERROR: settings.gradle not found!"
-            exit 1
+            echo "هشدار: settings.gradle پیدا نشد. بررسی فایل جایگزین..."
+            # اگر فایل تنظیمات نبود، بررسی می‌کنیم آیا فایل ساخت اصلی در ریشه هست یا نه
+            if [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
+              echo "فایل build.gradle در پوشه اصلی پیدا شد."
+              PROJ_DIR="."
+            else
+              echo "خطا: هیچ فایل ساخت گریدلی در پروژه پیدا نشد!"
+              exit 1
+            fi
+          else
+            PROJ_DIR=$(dirname "$SETTINGS_FILE")
+            echo "پروژه اندروید در این مسیر پیدا شد: $PROJ_DIR"
           fi
           
-          PROJ_DIR=$(dirname "$SETTINGS_FILE")
-          echo "Found project in: $PROJ_DIR"
           echo "PROJ_DIR=$PROJ_DIR" >> $GITHUB_ENV
           
           # پاک کردن آدرس جاوای هاردکد شده
           if [ -f "$PROJ_DIR/gradle.properties" ]; then
             sed -i '/org.gradle.java.home/d' "$PROJ_DIR/gradle.properties"
-            echo "Hardcoded java.home removed successfully!"
+            echo "آدرس جاوای هاردکد شده با موفقیت پاک شد."
           fi
 
       - name: Change wrapper permissions
